@@ -8,6 +8,16 @@ The display turns the aircraft's telemetry into a full instrument panel modelled
 <br>• Works with MAVLink (ArduPilot, PX4), CRSF (ExpressLRS, Crossfire) and MSP (INAV, Betaflight) over USB/serial, UDP or TCP. 
 <br>• Automatic flight logging to the computer, with replay, seek and a standard .tlog for Mission Planner. 
 
+<strong>Key capabilities</strong>
+<br>•	Artificial horizon with speed and altitude tapes, vertical speed, heading tape and magenta steering bars that point you home.
+<br>•	Moving map with home pointer, glide-range ring and breadcrumb trail, plus a side-view profile of the aircraft above the ground.
+<br>•	Return-to-home panel with a large direction arrow, turn instruction, distance, time to home and a battery check that says whether you can make it.
+<br>•	Battery, current, throttle, link quality and GPS gauges, and a colour-coded alert list with Master Warning / Master Caution.
+<br>•	Works with MAVLink (ArduPilot, PX4), CRSF (ExpressLRS, Crossfire) and MSP (INAV, Betaflight) over USB/serial, UDP or TCP.
+<br>•	Automatic flight logging to the computer, with replay, seek and a standard .tlog for Mission Planner.
+<img width="468" height="208" alt="image" src="https://github.com/user-attachments/assets/0c47c45a-eea8-491c-b43b-1a274b21dff7" />
+
+
 
 
 
