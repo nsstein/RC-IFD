@@ -15,7 +15,7 @@ The display turns the aircraft's telemetry into a full instrument panel modelled
 <br>•	Battery, current, throttle, link quality and GPS gauges, and a colour-coded alert list with Master Warning / Master Caution.
 <br>•	Works with MAVLink (ArduPilot, PX4), CRSF (ExpressLRS, Crossfire) and MSP (INAV, Betaflight) over USB/serial, UDP or TCP.
 <br>•	Automatic flight logging to the computer, with replay, seek and a standard .tlog for Mission Planner.
-<img width="468" height="208" alt="image" src="https://github.com/user-attachments/assets/0c47c45a-eea8-491c-b43b-1a274b21dff7" />
+
 
 
 
