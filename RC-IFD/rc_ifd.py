@@ -1,0 +1,167 @@
+#!/usr/bin/env python3
+"""
+RC Instrument Flight Display — desktop application launcher (Windows / macOS / Linux / Raspberry Pi)
+
+  python rc_ifd.py                     open the display in its own window
+  python rc_ifd.py --fullscreen        start full-screen
+  python rc_ifd.py --kiosk             full-screen, no window chrome (field / Raspberry Pi)
+  python rc_ifd.py --headless          backend only: link + logging, no window (systemd service)
+  python rc_ifd.py --lan               also serve the display to phones/tablets on the same Wi-Fi (read-only viewers)
+  python rc_ifd.py --window chromium   force a window type: auto | webview | chromium | browser | none
+
+The backend owns the telemetry link and the flight log, so logging continues even if the
+window is closed (with --headless or --keep-running) and the UI can be reopened at any time.
+"""
+import argparse, asyncio, json, os, signal, socket, sys, threading, time, urllib.request
+
+# Frozen (PyInstaller): bundled data lives IN sys._MEIPASS (e.g. dist/RC-IFD/_internal), not its parent.
+HERE = (sys._MEIPASS if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS")
+else os.path.dirname(os.path.abspath(__file__)))
+
+from ifd_backend import __version__                                  # noqa: E402
+from ifd_backend.server import IFDServer, default_data_dir, is_raspberry_pi   # noqa: E402
+from ifd_backend import window                                       # noqa: E402
+
+TITLE = "RC Instrument Flight Display"
+
+
+def lan_ip():
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(("10.255.255.255", 1))
+        ip = s.getsockname()[0]
+        s.close()
+        return ip
+    except OSError:
+        return "127.0.0.1"
+
+
+def already_running(port):
+    """Single instance: if our server already answers, just open another window onto it."""
+    try:
+        with urllib.request.urlopen(f"http://127.0.0.1:{port}/api/info", timeout=0.6) as r:
+            return json.load(r).get("app") == "RC-IFD"
+    except Exception:
+        return False
+
+
+def main():
+    ap = argparse.ArgumentParser(description=TITLE)
+    ap.add_argument("--port", type=int, default=8765, help="local UI port (default 8765)")
+    ap.add_argument("--lan", action="store_true", help="listen on all interfaces so other devices can view (read-only)")
+    ap.add_argument("--data-dir", default=os.environ.get("RC_IFD_DATA") or default_data_dir(),
+                    help="settings + logs location")
+    ap.add_argument("--window", default="auto", choices=["auto", "webview", "chromium", "browser", "none"])
+    ap.add_argument("--fullscreen", action="store_true")
+    ap.add_argument("--kiosk", action="store_true", help="full-screen kiosk (implies chromium window when available)")
+    ap.add_argument("--headless", action="store_true", help="same as --window none")
+    ap.add_argument("--keep-running", action="store_true", help="keep the backend (and logging) alive after the window closes")
+    ap.add_argument("--max-log-mb", type=int, default=2000, help="delete oldest logs above this total size")
+    ap.add_argument("--min-free-mb", type=int, default=300, help="keep at least this much disk free")
+    ap.add_argument("--quiet", action="store_true")
+    ap.add_argument("--version", action="version", version=f"RC-IFD {__version__}")
+    a = ap.parse_args()
+    if a.headless:
+        a.window = "none"
+
+    web_dir = os.path.join(HERE, "web")
+    if not os.path.isfile(os.path.join(web_dir, "index.html")):
+        sys.exit("[ifd] display files missing: " + os.path.join(web_dir, "index.html"))
+    pi = is_raspberry_pi()
+
+    if already_running(a.port) and a.window != "none":
+        url = f"http://localhost:{a.port}/"
+        print(f"[ifd] already running — opening another window on {url}")
+        if not window.open_chromium(url, os.path.join(a.data_dir, "browser-profile-2"), a.kiosk, a.fullscreen, pi):
+            window.open_default_browser(url)
+        return
+
+    srv = IFDServer(web_dir, a.data_dir, host=None if a.lan else "127.0.0.1", port=a.port,
+                    log_cfg={"max_total_mb": a.max_log_mb, "min_free_mb": a.min_free_mb}, verbose=not a.quiet)
+
+    loop = asyncio.new_event_loop()
+    started = threading.Event()
+    stop_evt = {"fn": None}
+
+    def run_loop():
+        asyncio.set_event_loop(loop)
+        loop.run_until_complete(srv.start())
+        started.set()
+        stop_future = loop.create_future()
+        stop_evt["fn"] = lambda: (not stop_future.done()) and stop_future.set_result(True)
+        loop.run_until_complete(stop_future)
+        loop.run_until_complete(srv.stop())
+        loop.close()
+
+    t = threading.Thread(target=run_loop, name="ifd-server", daemon=True)
+    t.start()
+    if not started.wait(10):
+        sys.exit("backend failed to start")
+
+    url = f"http://localhost:{srv.port}/"
+    if a.lan:
+        print(f"[ifd] LAN viewers: http://{lan_ip()}:{srv.port}/")
+
+    def shutdown(*_):
+        if stop_evt["fn"]:
+            loop.call_soon_threadsafe(stop_evt["fn"])
+        t.join(5)
+        os._exit(0)
+
+    signal.signal(signal.SIGINT, shutdown)
+    if hasattr(signal, "SIGTERM"):
+        signal.signal(signal.SIGTERM, shutdown)
+
+    mode = a.window
+    if mode == "auto":
+        if a.kiosk or pi:
+            mode = "chromium" if window.find_chromium() else ("webview" if window.have_pywebview() else "browser")
+        else:
+            mode = "webview" if window.have_pywebview() else ("chromium" if window.find_chromium() else "browser")
+
+    def wait_forever():
+        try:
+            while True:
+                time.sleep(3600)
+        except KeyboardInterrupt:
+            shutdown()
+
+    if mode == "none":
+        print(f"[ifd] headless — UI available at {url}")
+        wait_forever()
+    elif mode == "webview":
+        try:
+            window.run_pywebview(url, TITLE, fullscreen=a.fullscreen or a.kiosk)
+        except Exception as e:
+            print(f"[ifd] pywebview failed ({e}); falling back to browser window")
+            if not window.open_chromium(url, os.path.join(a.data_dir, "browser-profile"), a.kiosk, a.fullscreen, pi):
+                window.open_default_browser(url)
+            wait_forever()
+        if a.keep_running:
+            print(f"[ifd] window closed — backend still running at {url}")
+            wait_forever()
+        shutdown()
+    elif mode == "chromium":
+        p = window.open_chromium(url, os.path.join(a.data_dir, "browser-profile"), a.kiosk, a.fullscreen, pi)
+        if not p:
+            print("[ifd] no Chrome/Edge/Chromium found — using default browser")
+            window.open_default_browser(url)
+            wait_forever()
+        print(f"[ifd] window open ({os.path.basename(p.args[0])}). Close it to exit.")
+        try:
+            p.wait()
+        except KeyboardInterrupt:
+            pass
+        # Chrome may hand the window to an already-running instance and exit immediately
+        if a.keep_running or (time.time() - srv.started) < 5:
+            print(f"[ifd] backend running at {url} — Ctrl+C to quit")
+            wait_forever()
+        shutdown()
+    else:
+        window.open_default_browser(url)
+        print(f"[ifd] opened {url} in the default browser — Ctrl+C to quit")
+        wait_forever()
+
+
+if __name__ == "__main__":
+    main()

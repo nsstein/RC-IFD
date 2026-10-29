@@ -1,0 +1,6 @@
+[Desktop Entry]
+Type=Application
+Name=RC Instrument Flight Display (kiosk)
+Comment=Full-screen instrument display; the backend service keeps logging if this is closed
+Exec=sh -c 'sleep 3; $HOME/rc-ifd/.venv/bin/python $HOME/rc-ifd/rc_ifd.py --kiosk'
+X-GNOME-Autostart-enabled=true
