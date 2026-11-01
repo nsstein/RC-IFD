@@ -1,4 +1,4 @@
-<img width="1991" height="1185" alt="Screenshot 2026-10-31 at 7 44 06 PM" src="https://github.com/user-attachments/assets/aa6e8d37-7661-428e-934a-5561b756b989" />
+<img width="1712" height="1012" alt="Screenshot 2026-10-31 at 8 01 52 PM" src="https://github.com/user-attachments/assets/2eb852dc-9a2b-4343-a126-2e053f414eed" />
 
 The display turns the aircraft's telemetry into a full instrument panel modelled on real cockpit displays (Boeing 787 primary flight and navigation displays, Garmin G1000, Airbus warning system). Key capabilities 
 <br>• Artificial horizon with speed and altitude tapes, vertical speed, heading tape and magenta steering bars that point you home. 
