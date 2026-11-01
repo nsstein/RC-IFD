@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#05070a">
-<title>RC Instrument Flight Display v2.1.2</title>
+<title>RC Instrument Flight Display v2.2</title>
 <style>
 /* ============================================================
    RC INSTRUMENT FLIGHT DISPLAY  v2.1  — positions, waypoint missions, ADS-B traffic, last-known-position
@@ -130,6 +130,12 @@ table.cap td.r{text-align:right}
 
 .pick{display:flex;gap:4px;min-width:0} .pick select{flex:1;min-width:0}
 .ibtn.sm{padding:4px 8px}
+.adsbRow{border:1px solid var(--edge);border-radius:6px;padding:6px;margin:6px 0;display:grid;grid-template-columns:auto 1fr auto;gap:4px 6px;align-items:center}
+.adsbRow input[type=text]{min-width:0} .adsbRow .u{grid-column:1/4} .adsbRow .k{grid-column:1/4;display:flex;gap:6px} .adsbRow .k input{flex:1;min-width:0}
+.adsbRow .btnx{background:#111;border:1px solid var(--edge);color:var(--text);border-radius:4px;padding:2px 7px;cursor:pointer}
+#adsbState table{width:100%;border-collapse:collapse;margin-top:4px} #adsbState td{padding:2px 4px;border-top:1px solid var(--edge);vertical-align:top}
+#adsbState .ok{color:var(--green)} #adsbState .wait{color:var(--dim)} #adsbState .limited,#adsbState .error{color:var(--amber)} #adsbState .blocked{color:var(--red)}
+#drawer code{font-size:10px;color:var(--cyan);word-break:break-all}
 #annRec{display:none;color:#fff;background:#7a0d0d;border-color:var(--red)} #annRec.on{display:inline-block}
 table.logs td.lb{white-space:nowrap;text-align:right} table.logs button,table.logs a{background:#111;border:1px solid var(--edge);color:var(--cyan);
   border-radius:4px;padding:1px 6px;margin-left:3px;cursor:pointer;text-decoration:none;font:inherit}
@@ -307,19 +313,32 @@ body.lowpower #drawer,body.lowpower #rpBar{backdrop-filter:none;background:#0a0d
     MISSION_CURRENT, MISSION_ITEM_REACHED and NAV_CONTROLLER_OUTPUT. INAV (MSP): MSP_WP_GETINFO, MSP_WP and MSP_NAV_STATUS.
     CRSF carries no mission data. The last-known position is saved every 2 s and survives an app restart.</p>
   <h2>ADS-B TRAFFIC</h2>
-  <label>Ground receiver<select id="sAdsbKind"><option value="none">None</option><option value="json">dump1090 / readsb (aircraft.json URL)</option><option value="sbs">SBS-1 BaseStation (host:30003)</option></select></label>
-  <label id="rowAdsbAddr">Receiver address<input id="sAdsbAddr" spellcheck="false"></label>
+  <div class="note"><b>Online services</b> — internet aggregators queried around the aircraft (no hardware). Needs internet at the field.</div>
+  <label>adsb.lol<input id="sAdsbLol" type="checkbox"></label>
+  <label>adsb.fi<input id="sAdsbFi" type="checkbox"></label>
+  <div id="adsbCustom"></div>
+  <div class="btnrow"><button type="button" class="ibtn sm" id="btnAdsbAdd">＋ Custom service</button></div>
+  <label>Download radius (km)<input id="sAdsbRadius" type="number" min="2" max="460" step="1"></label>
+  <label>Poll interval (s)<input id="sAdsbInterval" type="number" min="2" max="60" step="1"></label>
+  <label>Query centre<select id="sAdsbCenter"><option value="auto">Aircraft → last known → home</option><option value="craft">Aircraft only</option><option value="home">Home (launch site)</option><option value="fixed">Fixed point</option></select></label>
+  <label id="rowAdsbFixed">Fixed lat, lon<input id="sAdsbFixed" spellcheck="false" placeholder="35.707, -81.219"></label>
+  <div class="note"><b>Local receiver</b> — RTL-SDR + dump1090/readsb/PiAware on this computer or the network. Works offline.</div>
+  <label>Receiver type<select id="sAdsbKind"><option value="none">None</option><option value="json">aircraft.json URL</option><option value="sbs">SBS-1 BaseStation (host:30003)</option></select></label>
+  <label id="rowAdsbAddr">Receiver address<span class="pick"><input id="sAdsbAddr" spellcheck="false"><button type="button" class="ibtn sm" id="btnAdsbTestRx" title="Test this address">Test</button></span></label>
+  <div id="adsbState" class="note"></div>
+  <h2 style="font-size:12px">TRAFFIC DISPLAY / ALERTS</h2>
   <label>Simulate traffic (bench test)<input id="sTfcSim" type="checkbox"></label>
   <label>Show traffic on map<input id="sTfcMap" type="checkbox"></label>
   <label>Alert radius horizontal (m)<input id="sTfcH" type="number" min="100" step="50"></label>
   <label>Alert radius vertical (m)<input id="sTfcV" type="number" min="20" step="10"></label>
   <label>Display range (km)<input id="sTfcRange" type="number" min="1" max="100"></label>
   <label>Hide traffic beyond ± (m)<input id="sTfcAltCap" type="number" min="100" step="100"></label>
-  <div id="adsbState" class="note"></div>
-  <p class="note">Sources: MAVLink ADSB_VEHICLE from the flight controller (e.g. uAvionix ping receiver — always accepted), or a ground
-    receiver (RTL-SDR + dump1090/readsb on the Pi or PC) read by the desktop backend. Symbols follow TCAS: ◇ other, ◆ proximate,
-    ● traffic advisory (amber), ■ resolution-level threat (red). Receive-only: small RC aircraft are invisible to manned traffic — you
-    must give way.</p>
+  <p class="note">URL placeholders: <b>{lat}</b> <b>{lon}</b> query centre · <b>{dist}</b> radius in nautical miles (the unit aggregator APIs use,
+    max 250) · <b>{dist_km}</b> <b>{dist_m}</b> · <b>{key}</b> the row's API key. Example:
+    <code>https://api.adsb.lol/v2/point/{lat}/{lon}/{dist}</code>. All enabled sources run together and are merged by ICAO address. MAVLink
+    ADSB_VEHICLE from the flight controller is always accepted. HTTP 403 means the service is refusing this client (api.adsb.one
+    blocks most API clients; airplanes.live needs approval) — the row backs off automatically. Symbols follow TCAS: ◇ other, ◆ proximate,
+    ● advisory (amber), ■ threat (red). Receive-only: manned aircraft cannot see your model — you must give way.</p>
   <h2>BATTERY</h2>
   <label>Cells (S)<input id="sCells" type="number"></label>
   <label>Capacity (mAh)<input id="sCap" type="number"></label>
@@ -1114,7 +1133,8 @@ const Backend={
       if(!m.on && prev){ log("Log closed: "+prev); refreshLogs(); }
     } else if(m.ev==="stats"){ this.stats=m; if(m.rec) this.rec=m.rec; }
       else if(m.ev==="adsb"){ Traffic.status=m.status||""; Traffic.src=m.src||"";
-        for(const a of m.list||[]) Traffic.update({...a,src:"RX"}); }
+        if(m.sources) renderAdsbSources(m.sources);
+          for(const a of m.list||[]) Traffic.update({...a,src:a.src||"RX"}); }
       else if(m.ev==="role"){ this.controller=!!m.controller; log("This display is now the link controller"); buildTransports(); }
   }
 };
@@ -1512,7 +1532,8 @@ const DEF={proto:"mavlink",trans:"sim",baud:"115200",wsUrl:"ws://localhost:8765/
   spd:"kmh",altU:"m",vs:"ms",vst:35,vne:140,bank:55,lowAlt:15,rthAlt:60,maxDist:2000,glide:8,cells:4,cap:3000,res:20,cellV:"3.5 / 3.3",
   audio:false,speech:false,stale:2,night:false,range:1000,northUp:false,
     port:"",holdDtr:true,udpPort:14550,tcp:"192.168.4.1:5760",fps:0,liveTrans:"serial",
-    coordFmt:"dd",misAuto:true,misMap:true,adsbKind:"none",adsbAddr:"http://localhost:8080/data/aircraft.json",tfcSim:false,tfcMap:true,
+    coordFmt:"dd",misAuto:true,misMap:true,adsbKind:"none",adsbAddr:"http://localhost:8080/data/aircraft.json",adsbLol:false,adsbFi:false,adsbRadius:25,adsbInterval:5,adsbCenter:"auto",adsbFixed:"",
+      adsbCustom:[{name:"adsb.one",url:"https://api.adsb.one/v2/point/{lat}/{lon}/{dist}",key:"",keyHeader:"",on:false}],tfcSim:false,tfcMap:true,
     tfcH:1000,tfcV:150,tfcRange:10,tfcAltCap:1500,tfcStale:20};
 let S=Object.assign({},DEF,JSON.parse(localStorage.getItem("rcifd11")||"{}"));
 S.inv=Object.assign({},DEF.inv,S.inv||{});
@@ -1524,7 +1545,8 @@ const bind={sProto:"proto",sTrans:"trans",sBaud:"baud",sWsUrl:"wsUrl",sReplaySpe
   sMavTx:"mavTx",sMavRate:"mavRate",sMspHz:"mspHz",sSpd:"spd",sAltU:"altU",sVs:"vs",sVst:"vst",sVne:"vne",sBank:"bank",
   sLowAlt:"lowAlt",sRthAlt:"rthAlt",sMaxDist:"maxDist",sGlide:"glide",sCells:"cells",sCap:"cap",sRes:"res",sCellV:"cellV",
     sAudio:"audio",sSpeech:"speech",sStale:"stale",sPort:"port",sHoldDtr:"holdDtr",sUdpPort:"udpPort",sTcp:"tcp",sFps:"fps",
-    sCoordFmt:"coordFmt",sMisAuto:"misAuto",sMisMap:"misMap",sAdsbKind:"adsbKind",sAdsbAddr:"adsbAddr",sTfcSim:"tfcSim",sTfcMap:"tfcMap",
+    sCoordFmt:"coordFmt",sMisAuto:"misAuto",sMisMap:"misMap",sAdsbKind:"adsbKind",sAdsbAddr:"adsbAddr",sAdsbLol:"adsbLol",sAdsbFi:"adsbFi",sAdsbRadius:"adsbRadius",sAdsbInterval:"adsbInterval",
+      sAdsbCenter:"adsbCenter",sAdsbFixed:"adsbFixed",sTfcSim:"tfcSim",sTfcMap:"tfcMap",
     sTfcH:"tfcH",sTfcV:"tfcV",sTfcRange:"tfcRange",sTfcAltCap:"tfcAltCap"};
 function syncForm(){ for(const [id,key] of Object.entries(bind)){ const el=$(id); if(!el) continue;
   if(el.type==="checkbox") el.checked=!!S[key]; else if(S[key]!=null) el.value=S[key]; } }
@@ -1541,10 +1563,51 @@ function syncRows(){ const t=S.trans, nat=Backend.ok, sh=(id,v)=>{ $(id).style.d
   sh("rowPort",nat&&t==="serial"); sh("rowBaud",t==="serial"); sh("rowDtr",nat&&t==="serial"); sh("rowUdp",t==="udp"); sh("rowTcp",t==="tcp");
   sh("rowWs",t==="ws"); sh("rowFile",t==="replay"); sh("rowSpeed",t==="replay"); sh("rowNoise",t==="sim");
     $("btnRec").style.display=(t==="replay"||t==="view")?"none":"";
-    $("rowAdsbAddr").style.display=S.adsbKind==="none"?"none":""; }
+    $("rowAdsbAddr").style.display=S.adsbKind==="none"?"none":""; $("rowAdsbFixed").style.display=S.adsbCenter==="fixed"?"":"none"; }
+  function adsbCfg(){
+    const fx=String(S.adsbFixed||"").split(/[ ,;]+/).map(parseFloat);
+    return {online:{"adsb.lol":!!S.adsbLol,"adsb.fi":!!S.adsbFi},custom:(S.adsbCustom||[]).map(r=>({...r})),
+      radiusKm:+S.adsbRadius||25,interval:+S.adsbInterval||5,center:S.adsbCenter||"auto",fixedLat:fx[0],fixedLon:fx[1],
+      local:{kind:S.adsbKind||"none",addr:S.adsbAddr||""}}; }
+  let adsbT=null;
   function adsbApply(){
-    if(!Backend.ok){ $("adsbState").textContent=S.adsbKind==="none"?"":"Ground receiver needs the desktop backend (not available in browser mode)."; return; }
-    if(Backend.controller) Backend.send({op:"adsb_cfg",kind:S.adsbKind,addr:S.adsbAddr}); }
+    const any=S.adsbLol||S.adsbFi||(S.adsbCustom||[]).some(r=>r.on&&r.url)||S.adsbKind!=="none";
+    if(!Backend.ok){ $("adsbState").textContent=any?"Online services and receivers need the desktop app (not available in browser mode).":""; return; }
+    if(!Backend.controller) return;
+    clearTimeout(adsbT); adsbT=setTimeout(()=>{ adsbPushPos(true); Backend.send({op:"adsb_cfg",cfg:adsbCfg()}); },300); }
+  function renderAdsbCustom(){
+    const el=$("adsbCustom"), rows=S.adsbCustom||(S.adsbCustom=[]);
+    el.innerHTML=rows.map((r,i)=>`<div class="adsbRow" data-i="${i}">
+      <input type="checkbox" data-f="on" ${r.on?"checked":""} title="Enabled"><input type="text" data-f="name" value="${esc(r.name||"")}" placeholder="name" spellcheck="false">
+      <span><button type="button" class="btnx" data-a="test" title="Test now">Test</button> <button type="button" class="btnx" data-a="del" title="Remove">✕</button></span>
+      <input class="u" type="text" data-f="url" value="${esc(r.url||"")}" placeholder="https://…/{lat}/{lon}/{dist}" spellcheck="false">
+      <span class="k"><input type="text" data-f="key" value="${esc(r.key||"")}" placeholder="API key (optional)" spellcheck="false">
+      <input type="text" data-f="keyHeader" value="${esc(r.keyHeader||"")}" placeholder="key header (optional)" spellcheck="false"></span></div>`).join("");
+  }
+  $("adsbCustom").addEventListener("change",e=>{ const row=e.target.closest(".adsbRow"); if(!row) return; const r=S.adsbCustom[+row.dataset.i], f=e.target.dataset.f;
+    if(!r||!f) return; r[f]=e.target.type==="checkbox"?e.target.checked:e.target.value.trim(); saveS(); adsbApply(); });
+  $("adsbCustom").addEventListener("click",async e=>{ const b=e.target.closest("button"); if(!b) return; const i=+b.closest(".adsbRow").dataset.i, r=S.adsbCustom[i];
+    if(b.dataset.a==="del"){ S.adsbCustom.splice(i,1); saveS(); renderAdsbCustom(); adsbApply(); }
+    else if(b.dataset.a==="test") adsbTest(r.url,r.key,r.keyHeader,b); });
+  $("btnAdsbAdd").onclick=()=>{ (S.adsbCustom=S.adsbCustom||[]).push({name:"custom",url:"",key:"",keyHeader:"",on:false}); saveS(); renderAdsbCustom(); };
+  $("btnAdsbTestRx").onclick=e=>adsbTest(S.adsbKind==="sbs"?"":S.adsbAddr,"","",e.currentTarget);
+  async function adsbTest(url,key,keyHeader,btn){
+    if(!Backend.ok){ toast("Testing needs the desktop app",true); return; }
+    if(!url){ toast("Nothing to test (SBS streams are tested by enabling them)",true); return; }
+    adsbPushPos(true); const old=btn.textContent; btn.textContent="…"; btn.disabled=true;
+    const r=await Backend.call({op:"adsb_test",url,key,keyHeader}); btn.textContent=old; btn.disabled=false;
+    toast(r.text||"no reply",!r.ok); log("ADS-B test: "+(r.text||"")+(r.url?"  ["+r.url+"]":"")); }
+  /* tell the backend where to centre online queries: live aircraft, last known position, home */
+  let adsbPosT=0;
+  function adsbPushPos(force){
+    if(!Backend.ok||!Backend.controller) return; const now=performance.now(); if(!force&&now-adsbPosT<2000) return; adsbPosT=now;
+    const live=fresh("gps")&&T.lat!=null&&T.fix>=3;
+    Backend.send({op:"adsb_pos",craft:live?[T.lat,T.lon]:null,lkp:LKP.v?[LKP.v.lat,LKP.v.lon]:null,home:T.homeLat!=null?[T.homeLat,T.homeLon]:null}); }
+  function renderAdsbSources(src){
+    if(!Backend.ok) return; const el=$("adsbState");
+    if(!src||!src.length){ el.innerHTML=S.tfcSim?"Simulated traffic only.":"No ADS-B source enabled."; return; }
+    el.innerHTML="<table>"+src.map(x=>`<tr><td class="${esc(x.state)}">${x.state==="ok"?"●":x.state==="wait"?"○":"▲"} ${esc(x.name)}</td>`+
+      `<td class="${esc(x.state)}">${esc(x.text||x.state)}${x.age!=null&&x.state==="ok"?` · ${x.age}s ago`:""}</td></tr>`).join("")+"</table>"; }
 for(const [id,key] of Object.entries(bind)){
   const el=$(id);
   if(el.type==="checkbox") el.checked=!!S[key]; else el.value=S[key];
@@ -1560,7 +1623,8 @@ for(const [id,key] of Object.entries(bind)){
     if(["baud","wsUrl","mspHz","port","holdDtr","udpPort","tcp"].includes(key) && (Conn.connected||Conn.want)) Conn.connect(true);
     if(key==="replaySpeed") $("rpSpeed").value=S.replaySpeed;
       if(key==="mavRate" && Conn.sess instanceof MavSession) Conn.sess.requestStreams();
-      if(key==="adsbKind"||key==="adsbAddr"){ if(key==="adsbKind"&&S.adsbKind==="sbs"&&/^https?:/.test(S.adsbAddr)){ S.adsbAddr="localhost:30003"; $("sAdsbAddr").value=S.adsbAddr; }
+      if(["adsbLol","adsbFi","adsbRadius","adsbInterval","adsbCenter","adsbFixed"].includes(key)){ syncRows(); adsbApply(); }
+        if(key==="adsbKind"||key==="adsbAddr"){ if(key==="adsbKind"&&S.adsbKind==="sbs"&&/^https?:/.test(S.adsbAddr)){ S.adsbAddr="localhost:30003"; $("sAdsbAddr").value=S.adsbAddr; }
         if(key==="adsbKind"&&S.adsbKind==="json"&&!/^https?:/.test(S.adsbAddr)){ S.adsbAddr=DEF.adsbAddr; $("sAdsbAddr").value=S.adsbAddr; }
         syncRows(); adsbApply(); }
       if(key==="tfcSim"&&!S.tfcSim){ for(const k of [...Traffic.map.keys()]) if(k.startsWith("SIM")) Traffic.map.delete(k); SimTfc.ac=null; SimTfc.base=null; }
@@ -2159,7 +2223,7 @@ function updatePanels(g){
     setText($("tab_mission"),Mission.count?`MISSION ${act?act.seq:"–"}/${Mission.count-(Mission.src==="MAV"?1:0)}`:"MISSION");
     setCls($("tab_mission"),listTab==="mission"?"on":"");
     setText($("tab_traffic"),`TRAFFIC${tfcList.length?" "+tfcList.length:""}`); setCls($("tab_traffic"),((listTab==="traffic"?"on ":"")+(thr===3?"w":thr===2?"c":"")).trim());
-    { const e=$("annTfc"); if(tfcList.length||S.adsbKind!=="none"||S.tfcSim){ e.style.display="";
+    { const e=$("annTfc"); if(tfcList.length||S.adsbKind!=="none"||S.adsbLol||S.adsbFi||(S.adsbCustom||[]).some(r=>r.on)||S.tfcSim){ e.style.display="";
         setAnn("annTfc",thr===3?"warn":thr===2?"cau":"info",String(tfcList.length)); } else e.style.display="none"; }
   for(const k of [...ackW]) if(!kW.includes(k)) ackW.delete(k);
   for(const k of [...ackC]) if(!kC.includes(k)) ackC.delete(k);
@@ -2293,7 +2357,7 @@ function loop(now){
   const v=(spdSource()!=="GPS")?T.airspeed:T.groundspeed;
   if(prevSpd!=null&&dt>0) spdTrend+=(((v-prevSpd)/dt)-spdTrend)*0.05; prevSpd=v; altTrend+=(T.climb-altTrend)*0.1;
   if(T.lat!==null&&fresh("gps")&&nowMs()-trailT>1000){ trailT=nowMs(); trail.push([T.lat,T.lon,T.alt]); if(trail.length>900) trail.shift(); }
-    windEstimate(dt); LKP.update(); SimTfc.step(dt);
+    windEstimate(dt); LKP.update(); SimTfc.step(dt); adsbPushPos(false);
     tfcList=Traffic.list();
     const g=guidance();
   drawPFD(g); drawND(g); drawEICAS();
@@ -2344,7 +2408,7 @@ function renderMission(){
 }
 function renderTraffic(list){
   const el=$("pane_traffic"), src=[...new Set(list.map(a=>a.src))].join("+")||Traffic.src||"";
-  if(!list.length){ setHTML(el,`<div class="none">${S.adsbKind==="none"&&!S.tfcSim&&!Traffic.map.size?"ADS-B source not configured (Settings → ADS-B TRAFFIC). MAVLink ADSB_VEHICLE is always accepted.":
+  if(!list.length){ setHTML(el,`<div class="none">${S.adsbKind==="none"&&!S.adsbLol&&!S.adsbFi&&!(S.adsbCustom||[]).some(r=>r.on)&&!S.tfcSim&&!Traffic.map.size?"ADS-B source not configured (Settings → ADS-B TRAFFIC). MAVLink ADSB_VEHICLE is always accepted.":
       "No traffic within "+U.dist((+S.tfcRange||10)*1000)+". "+esc(Traffic.status||"")}</div>`); return; }
   let h=`<div class="mhdr"><span>${list.length} TARGETS · ${esc(src)}</span><span class="d">${esc(Traffic.status||"")}</span></div>
     <table class="wpt"><tr><th></th><th>ID</th><th>DIST</th><th>POS</th><th>REL ALT</th><th>GS</th></tr>`;
@@ -2374,7 +2438,8 @@ function renderTraffic(list){
   buildTransports(); syncForm(); syncRows(); updateRecUI();
   document.body.classList.toggle("night",!!S.night); refreshColours(); buildCapTable(); syncInv();
     $("logsNative").style.display=nat?"":"none"; $("logsBrowser").style.display=nat?"none":"";
-    $("btnCoordFmt").textContent=(S.coordFmt||"dd").toUpperCase(); adsbApply();
+      $("btnCoordFmt").textContent=(S.coordFmt||"dd").toUpperCase(); renderAdsbCustom();
+        if(nat&&Backend.info.adsb) renderAdsbSources(Backend.info.adsb.sources); adsbApply();
     $("btnNight").setAttribute("aria-pressed",!!S.night); updateFsBtn();
   requestAnimationFrame(loop);
   Conn.connect(false);
