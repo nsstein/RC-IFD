@@ -1,0 +1,180 @@
+"""
+adsb.py — ADS-B traffic from a ground receiver for the RC Instrument Flight Display.
+
+Sources (standard library only):
+  json : dump1090 / dump1090-fa / readsb / tar1090 "aircraft.json", polled once per second
+         e.g. http://localhost:8080/data/aircraft.json            (dump1090-mutability, readsb)
+              http://localhost/dump1090-fa/data/aircraft.json     (FlightAware PiAware)
+              http://localhost/tar1090/data/aircraft.json         (tar1090)
+  sbs  : SBS-1 / BaseStation text stream, TCP host:30003 (dump1090 --net, readsb --net-sbs-port)
+
+Every target is normalised to SI units before it is sent to the display:
+  {icao, cs, lat, lon, altMsl [m] or None, altType "GEOM"|"BARO", gs [m/s], trk [deg], vs [m/s], cat, sq, age [s]}
+Geometric altitude (GNSS, ~MSL) is preferred; pressure altitude is used when that is all the aircraft sends
+(it can differ from GNSS height by tens of metres depending on the day's pressure — shown as altType "BARO").
+"""
+import asyncio, json, time, urllib.request
+
+FT = 0.3048
+KT = 0.514444
+FPM = 0.00508
+
+
+def _num(v):
+    try:
+        return float(v)
+    except (TypeError, ValueError):
+        return None
+
+
+class AdsbFeed:
+    def __init__(self, loop, on_update, on_status):
+        self.loop, self.on_update, self.on_status = loop, on_update, on_status
+        self.kind, self.addr = "none", ""
+        self.task = None
+        self.targets = {}
+        self.status = "off"
+
+    # ------------------------------------------------------------ control
+    async def configure(self, kind, addr):
+        kind = kind or "none"
+        addr = (addr or "").strip()
+        if kind == self.kind and addr == self.addr and (self.task or kind == "none"):
+            return
+        await self.stop()
+        self.kind, self.addr = kind, addr
+        self.targets = {}
+        if kind == "json" and addr:
+            self.task = asyncio.ensure_future(self._run_json())
+        elif kind == "sbs" and addr:
+            self.task = asyncio.ensure_future(self._run_sbs())
+        else:
+            self._status("off")
+
+    async def stop(self):
+        if self.task:
+            self.task.cancel()
+            try:
+                await self.task
+            except BaseException:
+                pass
+            self.task = None
+
+    def _status(self, s):
+        if s != self.status:
+            self.status = s
+            self.on_status(s)
+
+    def snapshot(self, max_age=20):
+        now = time.monotonic()
+        out = []
+        for k, a in list(self.targets.items()):
+            age = now - a["_t"]
+            if age > max_age:
+                del self.targets[k]
+                continue
+            if a.get("lat") is None:
+                continue
+            out.append({k2: v for k2, v in a.items() if not k2.startswith("_")} | {"age": round(age, 1)})
+        return out
+
+    # ------------------------------------------------------------ dump1090 / readsb JSON
+    @staticmethod
+    def parse_aircraft_json(doc):
+        out = []
+        for a in doc.get("aircraft", []):
+            lat, lon = _num(a.get("lat")), _num(a.get("lon"))
+            if lat is None or lon is None:
+                continue
+            if _num(a.get("seen_pos")) is not None and a["seen_pos"] > 30:
+                continue
+            geom = _num(a.get("alt_geom"))
+            baro = a.get("alt_baro", a.get("altitude"))
+            on_ground = baro == "ground"
+            baro = None if on_ground else _num(baro)
+            alt, at = (geom * FT, "GEOM") if geom is not None else ((baro * FT, "BARO") if baro is not None else (None, ""))
+            gs = _num(a.get("gs", a.get("speed")))
+            vr = _num(a.get("geom_rate", a.get("baro_rate", a.get("vert_rate"))))
+            out.append({"icao": str(a.get("hex", "")).upper().lstrip("~"), "cs": str(a.get("flight", "")).strip(),
+                        "lat": lat, "lon": lon, "altMsl": alt, "altType": at, "ground": on_ground,
+                        "gs": gs * KT if gs is not None else None, "trk": _num(a.get("track")),
+                        "vs": vr * FPM if vr is not None else 0.0, "cat": a.get("category", ""), "sq": a.get("squawk", ""),
+                        "_t": time.monotonic() - (_num(a.get("seen_pos")) or 0)})
+        return out
+
+    def _fetch(self, url):
+        req = urllib.request.Request(url, headers={"User-Agent": "RC-IFD"})
+        with urllib.request.urlopen(req, timeout=3) as r:
+            return json.loads(r.read().decode("utf-8", "replace"))
+
+    async def _run_json(self):
+        url = self.addr if "://" in self.addr else "http://" + self.addr
+        fails = 0
+        while True:
+            try:
+                doc = await self.loop.run_in_executor(None, self._fetch, url)
+                for a in self.parse_aircraft_json(doc):
+                    self.targets[a["icao"]] = a
+                fails = 0
+                self._status(f"receiver OK — {len(doc.get('aircraft', []))} aircraft heard")
+                self.on_update()
+            except asyncio.CancelledError:
+                raise
+            except Exception as e:
+                fails += 1
+                self._status(f"receiver unreachable ({e.__class__.__name__}) — retrying")
+            remote = url.startswith("https://")
+            await asyncio.sleep((2.0 if remote else 1.0) if fails < 3 else 5.0)
+
+    # ------------------------------------------------------------ SBS-1 BaseStation (port 30003)
+    def parse_sbs_line(self, line):
+        f = line.strip().split(",")
+        if len(f) < 11 or f[0] != "MSG" or not f[4]:
+            return
+        icao = f[4].upper()
+        a = self.targets.setdefault(icao, {"icao": icao, "cs": "", "lat": None, "lon": None, "altMsl": None, "altType": "BARO",
+                                          "gs": None, "trk": None, "vs": 0.0, "cat": "", "sq": "", "_t": time.monotonic()})
+        g = lambda i: f[i] if len(f) > i and f[i] != "" else None
+        if g(10):
+            a["cs"] = g(10).strip()
+        if g(11) and _num(g(11)) is not None:
+            a["altMsl"] = _num(g(11)) * FT
+        if g(12) and _num(g(12)) is not None:
+            a["gs"] = _num(g(12)) * KT
+        if g(13) and _num(g(13)) is not None:
+            a["trk"] = _num(g(13))
+        if g(14) and g(15) and _num(g(14)) is not None:
+            a["lat"], a["lon"] = _num(g(14)), _num(g(15))
+            a["_t"] = time.monotonic()
+        if g(16) and _num(g(16)) is not None:
+            a["vs"] = _num(g(16)) * FPM
+        if g(17):
+            a["sq"] = g(17)
+        if g(21):
+            a["ground"] = g(21) in ("-1", "1")
+
+    async def _run_sbs(self):
+        host, _, port = self.addr.rpartition(":")
+        host, port = (host or "localhost"), int(port or 30003)
+        backoff = 1
+        while True:
+            try:
+                self._status(f"connecting {host}:{port}")
+                r, w = await asyncio.wait_for(asyncio.open_connection(host, port), 5)
+                self._status(f"receiver OK — SBS {host}:{port}")
+                backoff = 1
+                last = time.monotonic()
+                while True:
+                    line = await asyncio.wait_for(r.readline(), 30)
+                    if not line:
+                        break
+                    self.parse_sbs_line(line.decode("ascii", "replace"))
+                    if time.monotonic() - last > 1:
+                        last = time.monotonic()
+                        self.on_update()
+            except asyncio.CancelledError:
+                raise
+            except Exception as e:
+                self._status(f"SBS {host}:{port} — {e.__class__.__name__}; retry in {backoff}s")
+            await asyncio.sleep(backoff)
+            backoff = min(backoff * 2, 10)

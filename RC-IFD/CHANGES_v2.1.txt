@@ -1,0 +1,25 @@
+RC-IFD v2.1 — drop-in update (replace these files in your RC-IFD folder, then rebuild the app)
+
+  web/index.html              UI
+  ifd_backend/__init__.py     version 2.1.0
+  ifd_backend/server.py       + ADS-B feed control ("adsb_cfg") and 1 Hz {"ev":"adsb"} broadcast
+  ifd_backend/adsb.py         NEW — dump1090/readsb aircraft.json poller and SBS-1 (port 30003) client
+  ifd_backend/recorder.py     .tlog framer knows the mission + ADSB_VEHICLE messages
+  ifd_backend/links.py, window.py   unchanged (included for completeness)
+
+UI additions
+  Return-to-home panel: HOME and CRAFT lat/lon (DD / DDM / DMS — tap the format button), click a row to copy,
+    CRAFT FROM HOME (walk-out bearing/distance), ALT MSL / REL.
+  Last known position: kept when the link drops (amber "LKP mm:ss") and saved to disk every 2 s, so it is
+    still there after an app restart. Settings → Clear saved last-known position.
+  Mission: MAVLink mission download (MISSION_REQUEST_LIST / MISSION_ITEM_INT), progress from MISSION_CURRENT,
+    MISSION_ITEM_REACHED, NAV_CONTROLLER_OUTPUT. INAV via MSP_WP_GETINFO / MSP_WP / MSP_NAV_STATUS.
+    Route on the map (done = dim dashed, active leg = magenta, pending = white), MISSION tab with
+    ✓ done / ▶ active / ○ pending, distance/ETE to active WP, route left vs battery endurance.
+  ADS-B: MAVLink ADSB_VEHICLE, ground receiver via backend, or simulated traffic. TCAS-style symbols with
+    relative altitude and climb/descent arrows, TRAFFIC tab, clock-position alerts in CAS, TFC annunciator.
+  Right-hand panel is now tabbed: ALERTS / MISSION / TRAFFIC. A new warning always switches back to ALERTS.
+  Simulator: flies a 6-waypoint mission (key M toggles mission / wander) and emits simulated traffic.
+
+Verify on hardware: INAV MSP_WP / MSP_NAV_STATUS field layout; ADS-B pressure-altitude targets (altType BARO)
+  can read tens of metres off versus your GPS altitude.
