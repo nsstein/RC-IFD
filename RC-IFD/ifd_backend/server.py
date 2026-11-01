@@ -4,7 +4,7 @@ server.py — local HTTP + WebSocket server that connects the instrument UI to t
   GET  /                    the instrument display (web/index.html)
   GET  /api/info            JSON: version, platform, pyserial, data dir
   GET  /logs/<name>.ifdrec  raw log for replay (also .tlog / .json)
-  ADS-B: optional ground receiver (dump1090/readsb JSON or SBS-1) broadcast as {"ev":"adsb"} once per second
+  ADS-B: online services (adsb.lol, adsb.fi, custom URL templates) + local receiver, merged; broadcast as {"ev":"adsb"} 1 Hz
   WS   /ws                  binary frames = telemetry bytes (both directions)
                             text frames   = JSON control / events
 
@@ -115,8 +115,11 @@ class IFDServer:
         if "autoLog" in s:
             self.rec.set_auto(s["autoLog"])
         self.adsb = AdsbFeed(self.loop, lambda: None, self._adsb_status)
-        if s.get("adsbKind", "none") != "none":
-            await self.adsb.configure(s.get("adsbKind"), s.get("adsbAddr", ""))
+        cfg = s.get("adsbCfg")
+        if not cfg and s.get("adsbKind", "none") != "none":            # settings saved by v2.1
+            cfg = {"local": {"kind": s.get("adsbKind"), "addr": s.get("adsbAddr", "")}}
+        if cfg:
+            await self.adsb.configure(cfg=cfg)
         asyncio.ensure_future(self._ticker())
         self.log(f"[ifd] UI at http://{'localhost' if self.host in ('127.0.0.1', None) else self.host}:{self.port}/  "
                  f"data: {self.data_dir}  pyserial: {SERIAL_VERSION or 'MISSING'}")
@@ -137,8 +140,8 @@ class IFDServer:
             k += 1
             self.rec.tick()
             if self.adsb and self.adsb.kind != "none" and self.clients:
-                self._broadcast_json({"ev": "adsb", "src": self.adsb.kind.upper(), "status": self.adsb.status,
-                                      "list": self.adsb.snapshot()})
+                self._broadcast_json({"ev": "adsb", "src": "ADS-B", "status": self.adsb.status,
+                                      "sources": self.adsb.sources(), "list": self.adsb.snapshot()})
             if self.link and k % 2 == 0:
                 st = {"ev": "stats", "rx": self.link.rx, "tx": self.link.tx}
                 if self.rec.active:
@@ -197,7 +200,7 @@ class IFDServer:
 
     def _adsb_status(self, st):
         self.log(f"[adsb] {st}")
-        self._broadcast_json({"ev": "adsb", "src": self.adsb.kind.upper() if self.adsb else "", "status": st, "list": []})
+        self._broadcast_json({"ev": "adsb", "src": "ADS-B", "status": st, "sources": self.adsb.sources() if self.adsb else [], "list": []})
 
     # ------------------------------------------------------------ recorder notifications
     def _rec_changed(self):
@@ -225,7 +228,8 @@ class IFDServer:
                 "controller": bool(client and client.controller), "lan": self.host not in ("127.0.0.1", "localhost", None),
                 "link": {"state": self.link_state[0], "text": self.link_state[1], "cfg": self.link_cfg},
                 "rec": self.rec.status(),
-                "adsb": {"kind": self.adsb.kind if self.adsb else "none", "status": self.adsb.status if self.adsb else "off"}}
+                "adsb": {"kind": self.adsb.kind if self.adsb else "none", "status": self.adsb.status if self.adsb else "off",
+                         "sources": self.adsb.sources() if self.adsb else []}}
 
     async def _control(self, client, msg):
         op = msg.get("op")
@@ -277,8 +281,18 @@ class IFDServer:
             reply({"ev": "saved"})
         elif op == "adsb_cfg":
             if client.controller and self.adsb:
-                await self.adsb.configure(str(msg.get("kind", "none")), str(msg.get("addr", ""))[:300])
-            reply({"ev": "ok"})
+                if isinstance(msg.get("cfg"), dict):
+                    await self.adsb.configure(cfg=msg["cfg"])
+                else:
+                    await self.adsb.configure(str(msg.get("kind", "none")), str(msg.get("addr", ""))[:300])
+            reply({"ev": "ok", "sources": self.adsb.sources() if self.adsb else []})
+        elif op == "adsb_pos":
+            if self.adsb and client.controller:
+                self.adsb.set_position(msg.get("craft"), msg.get("lkp"), msg.get("home"))
+        elif op == "adsb_test":
+            r = await self.adsb.test_url(str(msg.get("url", ""))[:400], str(msg.get("key", ""))[:200],
+                                         str(msg.get("keyHeader", ""))[:64]) if self.adsb else {"ok": False, "text": "no backend"}
+            reply({"ev": "adsb_test", **r})
         elif op == "open_folder":
             self._open_folder(self.rec.dir)
             reply({"ev": "ok"})
