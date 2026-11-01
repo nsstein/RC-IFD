@@ -1,0 +1,7 @@
+RC-IFD v2.9.1 — glide ring clarified  (web/index.html only)
+  * Glide ring label restored: "GLIDE 376 m" (reach = height above home × glide ratio). v2.x had shortened it to "gs".
+  * Glide ring is now visually distinct: long-dashed amber line, 2 px, with a light amber fill of the reachable area.
+  * Traffic rings use fine dots and are labelled TA (alert radius, amber) and RA (threat radius, red); they are only
+    drawn when a traffic source is enabled (simulated, online service, receiver or FC ADS-B).
+  * New setting: RETURN TO HOME → "Show glide ring on map" (default on).
+  * Unchanged: glide maths, profile glide line, GLIDE HOME row, glide-ratio setting.

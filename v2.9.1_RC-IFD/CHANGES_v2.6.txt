@@ -1,0 +1,17 @@
+RC-IFD v2.6 — second batch of instrument-flying cues  (web/index.html only; backend unchanged). Built on v2.5.
+
+  * GPS accuracy circle (map): shaded ring round the aircraft sized from HDOP × 5 m, plus "GPS ±4 m" under the wind
+    readout. Cyan when good, amber when HDOP ≥ 2.5 or no 3D fix. Ring only drawn once it is ≥ 3 px at the map range.
+  * Turn-rate trend (heading tape): green bar from the lubber line to where the heading will be in 10 s, with the
+    measured rate ("3.6°/s"; amber above 6°/s). Dim ticks at ±30° mark a standard-rate (3°/s) turn for comparison.
+    Rate is measured from heading change, not assumed from bank.
+  * Roll-out cue (heading tape): when turning toward home, a magenta line marks where to start levelling the wings
+    (lead = 1.5 s of turn, max 25°); "ROLL OUT" appears when you reach it — stops overshooting the home heading.
+  * Alert-threshold marks: amber bank-limit marks on the roll scale at your Max bank setting (where BANK ANGLE
+    fires); amber/red band on the vertical-speed scale at −5 / −8 m/s with a red line at the SINK RATE limit.
+  * Battery minutes (flight display, above RTH ALT): "BATT 03:27 MIN" = time to your landing reserve at the current
+    current draw. Green; amber ≤ 3 min or < 1.25 × time-to-home; red (boxed) ≤ 1 min or less than time-to-home.
+    Falls back to "BATT 72%" when current isn't available.
+  * Daylight high-contrast palette: white text, brighter greens/ambers/cyans, heavier panel borders, pure black.
+    The moon button now cycles Standard → Daylight → Night (red); also Settings → Display palette.
+  Each cue can be switched off in Settings → Display / Alerts.

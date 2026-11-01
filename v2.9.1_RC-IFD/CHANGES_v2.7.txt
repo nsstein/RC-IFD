@@ -1,0 +1,18 @@
+RC-IFD v2.7  (web/index.html only; backend unchanged)
+Includes everything from v2.4 (traffic overlay), v2.5 and v2.6 (visual cues), re-applied to the supplied v2.3 file.
+
+Roll-out cue — no more flicker
+  * Uses a slower turn-rate filter (~1.2 s) than the trend bar (~0.4 s), and is recalculated at most 4×/s.
+  * Hysteresis: the cue appears above 1.5°/s and only goes away below 0.8°/s, or when you turn away from home.
+  * The magenta line eases to its new position and snaps to whole degrees.
+  * "ROLL OUT" is boxed and, once shown, stays for at least 2 s (until wings are level or home has been passed).
+  * The °/s figure next to the trend bar is rounded to 0.5°/s and updates about 3×/s.
+  * New setting: Roll-out lead (seconds of turn, 0.5–4, default 1.5).
+  Measured over a 12 s turn: line shown/hidden twice, max movement 3° per frame, label held 2.2 s,
+  rate text 2.6 changes/s.
+
+Right column — balanced
+  * RETURN TO HOME and ALERTS now share the right column 50/50 from the top of the flight display to the bottom of
+    the systems panel (e.g. 418 px each at 1440×900). The RTH panel was compacted slightly (smaller turn text,
+    tighter rows, arrow scales to fit), so all rows, Positions and the RTH status fit.
+  * Tablet/phone layouts unchanged (panels stack).

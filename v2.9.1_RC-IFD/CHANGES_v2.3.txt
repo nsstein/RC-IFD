@@ -1,0 +1,16 @@
+RC-IFD v2.3 — traffic overlay tied to the alert settings  (web/index.html only; v2.2 backend files unchanged)
+
+Before: traffic was drawn only inside the compass ring, i.e. within the MAP RANGE (default 1 km, set with − / +).
+The amber/red levels come from the ALERT RADIUS settings (and a 60 s / 30 s closest-approach prediction), so an
+alerting aircraft could be outside the ring and invisible on the map while the alert sounded.
+
+Now:
+  * Traffic uses the whole compass section of the navigation display (corners included), not just the ring.
+  * Amber (advisory) and red (threat) traffic is never hidden:
+      - Auto-range ON (default): the map zooms out to the next range step until every amber/red target fits;
+        the range button turns amber and reads "TFC 2.00 km". It returns to your range 8 s after the threat clears.
+      - Auto-range OFF, or beyond the 25 km maximum: the target is pinned to the edge of the map area with an
+        arrow pointing to its real position, plus callsign and distance.
+  * Cyan (proximate) and white traffic is drawn when it falls anywhere inside the map area.
+  * Alert-radius rings: amber = horizontal alert radius, red = half of it (the threat radius), labelled "TA x km".
+  * New settings under ADS-B → Traffic display: "Auto-range map to show alerting traffic", "Show alert-radius rings".

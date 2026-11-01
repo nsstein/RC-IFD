@@ -1,0 +1,22 @@
+RC-IFD v2.4 — navigation-display traffic overlay fixed  (web/index.html only; backend unchanged)
+
+Problem in v2.3 (reproduced): only amber/red targets were pinned. Every other aircraft in the traffic list that fell
+outside the map area was silently dropped — with the map at 1 km, 4 of 7 listed aircraft at 3–9.5 km were invisible.
+The few pins that were drawn landed on the top edge under the heading box and could stack on top of each other.
+
+v2.4:
+  * EVERY aircraft in the traffic list (inside Display range and the ± height band — the same limits that drive the
+    TRAFFIC list and the alerts) appears on the navigation display.
+  * Inside the compass section (ring, outside the ring, corners): drawn at its true scaled position.
+  * Beyond the section at the current map range: pinned to the section edge on its true bearing, with an arrow
+    pointing to the real position and a label — distance and relative height (± m, ↑/↓), plus callsign for
+    cyan / amber / red. White (non-alerting) pins are slightly smaller and dimmer.
+  * Pins are laid out around the whole perimeter: red/amber are placed first and keep their exact bearing; others take
+    the nearest free slot (wrapping round corners if needed). The heading box is kept clear. Labels are only drawn
+    where they do not overlap — red gets up to four positions to find room. If more pins than fit, the count shows
+    "N OFF-SCALE (+k in TRAFFIC list)" in amber.
+  * Traffic is now drawn last, on top of the map, compass and data blocks.
+  * Rings: amber = horizontal alert radius (TA), red = threat radius (half), dotted grey = Display range limit.
+  * Auto-range (unchanged behaviour): zooms out until amber/red traffic is at its true position, label "TFC x km".
+Tested in the simulator with injected traffic: heading-up and north-up, auto-range on/off, 19-target stress test
+(min 28 px between symbols), desktop / tablet / phone layouts — every listed target drawn, no JS errors.

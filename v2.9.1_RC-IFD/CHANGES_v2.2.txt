@@ -1,0 +1,24 @@
+RC-IFD v2.2 — ADS-B online services (matches / extends Kite-GC)
+
+Why "receiver error HTTP 403": api.adsb.one sits behind a firewall that refuses most API clients (Kite-GC ships it
+disabled for the same reason). adsb.lol also rejects generic library User-Agents, and v2.1 polled one URL only, so a
+single refusing service meant no traffic at all.
+
+Replace: web/index.html, ifd_backend/adsb.py, ifd_backend/server.py, ifd_backend/__init__.py (2.2.0). New: tests/.
+links.py, recorder.py, window.py unchanged.
+
+  * Several sources at once, merged and de-duplicated by ICAO (freshest position wins):
+      built-in adsb.lol and adsb.fi (tick to enable) · up to 8 custom services (name, URL template, optional API key +
+      header) — adsb.one pre-filled but OFF · local receiver (aircraft.json URL or SBS-1 host:30003).
+  * URL placeholders: {lat} {lon} {dist} (= {dist_nm}, nautical miles, max 250 — what the APIs expect)
+      {dist_km} {dist_m} {key}.  e.g. https://api.adsb.one/v2/point/{lat}/{lon}/{dist}
+  * Query centre follows the aircraft (live → last known position → home), or Home only, or a fixed point.
+    Online queries wait until a position exists instead of sending invalid requests.
+  * Download radius 2–460 km and poll interval 2–60 s (Kite-GC: 10–100 km, 2–30 s).
+  * Descriptive User-Agent ("RC-IFD/2.2.0 …") so adsb.lol accepts the requests.
+  * Per-source status table in Settings (OK / waiting / rate-limited / blocked) and a Test button per row.
+  * 403/401 → back-off 60 s doubling to 10 min (adsb.fi counts refused requests toward its limit); 429 honours
+    Retry-After; 404 explains a wrong template; macOS certificate errors explained.
+  * adsb.fi uses its current v3 endpoint (v2 lat/lon/dist is deprecated).
+  * Settings saved by v2.1 (single receiver URL) are migrated automatically.
+Tested against local mock services (UA-blocking 403, 401 key, ac/aircraft formats, 404), 24/24 backend + 9/9 UI.

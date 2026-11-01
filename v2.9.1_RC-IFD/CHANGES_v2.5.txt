@@ -1,0 +1,15 @@
+RC-IFD v2.5 — first batch of transparency / instrument-flying cues  (web/index.html only; backend unchanged)
+Built on v2.4 (traffic overlay: every listed aircraft drawn, pinned to the section edge when off-scale).
+
+  * TFC MAP OFF: amber note on the map when traffic exists but "Show traffic on map" is off.
+  * Traffic filter tag (map, bottom-left): "TFC ≤10.00 km ±1500m · 2 hidden" — the active limits and how many
+    received aircraft they are hiding.
+  * Data-age warning: an instrument whose data is in the last half of the stale window gets an amber dashed outline
+    and its age ("1.6s"), before it switches to the red failure flag. Attitude, speed tape, altitude/VS, heading tape.
+  * Degraded-source tags (top-left of the attitude display, amber): shown only when a source is NOT the normal one —
+    SPD GPS GS, SPD EST, ALT GPS, HDG TRK, HOME ARM PT / 1ST FIX / MANUAL, WIND EST, HDOP x.x, GPS 2D.
+  * Mode-change box: white box round the flight-mode (and ARMED/DISARMED) cell for 10 s after it changes — catches
+    an unexpected failsafe / RTL / mode switch.
+  * Predicted turn path (map): green curve where the aircraft will be at the current bank, with 10/20/30 s dots,
+    plus "TURN 2.8°/s · 360° 131s" (amber above 6°/s). Shown when banked enough to turn > 0.6°/s.
+  Each cue can be switched off in Settings → Display / Alerts.

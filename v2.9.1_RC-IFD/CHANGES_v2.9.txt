@@ -1,0 +1,20 @@
+RC-IFD v2.9 — mission auto-range rebuilt  (web/index.html only; backend unchanged). Built on v2.8.
+
+Why v2.8 still looked compressed / had no effect
+  * The fit only ran when the flight controller reported a current waypoint. INAV reports it only in WP mode, and
+    some links drop MISSION_CURRENT — so the setting silently did nothing and your manual range was used.
+  * Range jumped in coarse steps (1 → 2 → 5 → 10 km), so a mission needing 2.1 km was drawn at 5 km (~40 % of the map).
+  * The fit used the compass ring, not the usable compass section, and traffic auto-range could override it silently.
+
+v2.9
+  * Fits even with no current-waypoint report: it then fits the WHOLE route ("FC not reporting current WP").
+    With a current waypoint: LEG = active + next waypoint (default), or REMAINING = all waypoints still to fly.
+  * Continuous range in fine steps ≈10 % apart (…2.2, 2.5, 2.8, 3, 3.5, 4, 4.5, 5 km…); the farthest fitted waypoint
+    is placed at ~90 % of the usable radius. Grows at once, shrinks after 2.5 s; independent of heading, so it does
+    not pump while turning.
+  * Status line on the map (under GPS ±): "MAP FIT LEG · WP 1–2", "MAP FIT ROUTE · WP 1–5 (FC not reporting current
+    WP)", "MAP FIT overridden by TRAFFIC" (amber), "MAP FIT OFF · mission not shown" (amber).
+  * Range button shows "WPT 2.50 km" (magenta). Pressing − / + or the range button switches the fit OFF and returns to
+    manual range (toast confirms); re-enable in Settings → Position / Mission.
+  Measured in the simulator, waypoints 0.3–6 km away: mission fills 77–84 % of the usable map radius
+  (v2.8: 66–74 %, and 0 % effect when no current waypoint was reported).

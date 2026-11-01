@@ -1,0 +1,22 @@
+RC-IFD v2.8  (web/index.html only; backend unchanged). Built on v2.7.
+
+Navigation display during waypoint missions
+  * Cause: the map stayed at the manual range (e.g. 1 km) while real missions span several km, and the route was
+    clipped to the compass ring — waypoints were cut off and the route folded into the ring edge.
+  * Mission auto-range (Settings → Position / Mission → "Auto-range map to the mission"):
+      - Active + next waypoint (default): smallest range step that shows the aircraft, the active and the next WP.
+      - Whole remaining mission.      - Off: your manual range.
+    The range button shows "WPT 5.00 km" in magenta. It zooms out immediately when needed and only zooms back in
+    after 6 s, so it does not pump. Traffic auto-range (amber "TFC") still overrides it when a threat needs more room.
+  * Waypoints beyond the map are pinned inside the compass ring on their true bearing, with number and distance
+    (e.g. "3 3.83 km"); completed off-scale waypoints are hidden. Route lines stop at the pin ring, symbols are not cut.
+  * Waypoint labels are skipped where waypoints crowd together; the active waypoint is always labelled.
+
+Roll cue on the heading tape — flicker removed
+  * All numbers removed (no °/s next to the trend bar; the "TURN x°/s · 360° xs" text on the map is gone too).
+  * Trend bar and roll-out line use the slow turn-rate filter, recalculated 4×/s, snapped to 2° steps, and glide
+    (max 25°/s and 15°/s across the tape) instead of jumping.
+  * The roll-out cue must be valid for 0.75 s before it appears and stays at least 1.5 s; ROLL OUT is held ≥ 2.5 s.
+  * Suppressed while the flight controller flies the mission (AUTO/WP) and within 150 m of home, where the bearing
+    to home swings too fast to be useful.
+  Measured: mission flight 16 s — roll-out cue 0 changes; manual turn home 13 s — line shown/hidden twice.
