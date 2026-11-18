@@ -7,7 +7,7 @@
 > [!WARNING]
 > RC-IFD is a pilot aid, not certified avionics. It is not a backup for your flight controller's failsafe or return-to-home. Follow local regulations, including visual line-of-sight rules, and always see and avoid manned aircraft.
 
-![RC-IFD primary flight and navigation displays](docs/images/main-display.png)
+![RC-IFD primary flight and navigation displays](docs/images/readme_main.png)
 
 ## Features
 
