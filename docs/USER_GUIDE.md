@@ -21,7 +21,8 @@ Screenshots in this guide illustrate the instrument panels and controls. Small l
 - [10. Flight logs and replay](#10-flight-logs-and-replay)
 - [11. Settings reference](#11-settings-reference)
 - [12. Troubleshooting](#12-troubleshooting)
-- [13. Share an install](#13-share-an-install)
+- [13. Build a standalone app](#13-build-a-standalone-app)
+- [14. Share an install](#14-share-an-install)
 - [Quick reference card](QUICK_REFERENCE.md)
 
 ---
@@ -78,9 +79,11 @@ The same colours mean the same thing everywhere, as in a real cockpit.
 
 If you were given a packaged build:
 
-- **macOS:** open the `.dmg`, drag RC-IFD into Applications, then right-click → **Open** on first launch. If macOS reports the app as damaged, run `xattr -dr com.apple.quarantine /Applications/RC-IFD.app` once in Terminal. Get a build that matches your Mac (Apple menu → About This Mac).
-- **Windows:** unzip the RC-IFD folder somewhere permanent and double-click `run_windows.bat`. Windows usually installs USB serial drivers automatically; CH340 adapters may need the WCH driver.
+- **macOS:** open the `.dmg` (or the `RC-IFD.app` bundle), drag RC-IFD into Applications, then right-click → **Open** on first launch. If macOS reports the app as damaged, run `xattr -dr com.apple.quarantine /Applications/RC-IFD.app` once in Terminal. Get a build that matches your Mac (Apple menu → About This Mac).
+- **Windows:** if you received a standalone build, run `RC-IFD.exe` from its folder. If you received the source folder, unzip it somewhere permanent and double-click `run_windows.bat`. Windows usually installs USB serial drivers automatically; CH340 adapters may need the WCH driver.
 - **Linux / Pi:** use the source folder as described below.
+
+To create your own packaged app rather than running from source, see [13. Build a standalone app](#13-build-a-standalone-app).
 
 ### From the source folder
 
@@ -646,7 +649,104 @@ Settings also include link statistics (data rate, corrupted frames, message rate
 
 ---
 
-## 13. Share an install
+## 13. Build a standalone app
+
+`build_standalone.py` packages the application with PyInstaller so the target computer does not need Python installed. It bundles `web/index.html` and the backend, uses `RC-IFD.icns` on macOS or `RC-IFD.ico` on Windows/Linux, and writes the result into `dist/`.
+
+> [!IMPORTANT]
+> PyInstaller does not cross-compile. Run the build **on each target operating system**: a macOS build runs only on macOS, a Windows build only on Windows, and a Linux build only on Linux. An Apple Silicon build also will not run on Intel Macs, and vice versa.
+
+### 13.1 Install the build dependencies
+
+Use the same Python interpreter to install the dependencies and run the build. A virtual environment is recommended. If the launcher already created `.venv` for you, skip the `venv` creation step and just add PyInstaller.
+
+**Windows** (Command Prompt; in PowerShell prefix the paths with `.\`):
+
+```bat
+py -3 -m venv .venv
+.venv\Scripts\python -m pip install --upgrade pip
+.venv\Scripts\python -m pip install -r requirements.txt pyinstaller
+.venv\Scripts\python build_standalone.py
+```
+
+If `py` is not available, use `python` instead and make sure Python 3.9+ was installed with **Add python.exe to PATH**.
+
+**macOS and Linux:**
+
+```bash
+python3 -m venv .venv
+.venv/bin/python -m pip install --upgrade pip
+.venv/bin/python -m pip install -r requirements.txt pyinstaller
+.venv/bin/python build_standalone.py
+```
+
+`requirements.txt` installs `pyserial` and, on desktop platforms where it is supported, `pywebview`. If `pywebview` is not installed, the built app falls back to a Chrome/Edge/Chromium app window. On Raspberry Pi this is the preferred window anyway, so a standalone build is optional — the source installer in `deploy/raspberrypi/` is usually the better choice.
+
+If you already have the project's `.venv`, the minimum extra step is:
+
+```bash
+.venv/bin/python -m pip install pyinstaller     # macOS / Linux
+.venv\Scripts\python -m pip install pyinstaller  # Windows
+```
+
+### 13.2 Run the build
+
+From the project folder, run the script with the interpreter that has PyInstaller installed:
+
+```bash
+python build_standalone.py
+```
+
+The script prints the PyInstaller command it uses, removes any previous `build/`, `dist/` and `RC-IFD.spec`, then builds the app. If a custom icon is missing from the project root, it prints a warning and builds without it. On macOS it copies the icon into the bundle, updates `Info.plist`, and ad-hoc re-signs the app so macOS will open it.
+
+### 13.3 Where the built application is
+
+| OS | Output | What to distribute |
+| --- | --- | --- |
+| macOS | `dist/RC-IFD.app` | The whole `.app` bundle. The script does **not** create a `.dmg`; create one separately if you want a disk image. Because the build is ad-hoc signed, recipients may need to right-click → Open on first launch. |
+| Windows | `dist/RC-IFD/RC-IFD.exe` | The **whole** `dist/RC-IFD` folder, including `_internal/`. Do not send only the `.exe`. |
+| Linux / Raspberry Pi | `dist/RC-IFD/RC-IFD` | The **whole** `dist/RC-IFD` folder, including `_internal/`. Keep the executable bit set. |
+
+Settings and logs are not embedded in the build. They are still written to the normal data folder (`%LOCALAPPDATA%\RC-IFD`, `~/Library/Application Support/RC-IFD`, or `~/.local/share/rc-ifd`), so rebuilding does not lose flight data.
+
+### 13.4 Clean rebuild: what to remove
+
+The build script already deletes `build/`, `dist/` and `RC-IFD.spec` on every run, so a normal rebuild after a code change is simply:
+
+```bash
+python build_standalone.py
+```
+
+If a rebuild appears to use old code, or you changed dependencies, icons or the display files, remove these before rebuilding:
+
+| Remove | Why |
+| --- | --- |
+| `build/` | PyInstaller analysis and work cache. |
+| `dist/` | Previous packaged application. |
+| `RC-IFD.spec` | Generated spec file; the script regenerates it. |
+| All `__pycache__/` folders and `*.pyc` files | Stale Python bytecode from earlier runs. |
+| `.venv/` (only if `requirements.txt` changed or installs are broken) | Recreate it with the commands in 13.1. Keep it if only code or UI changed. |
+| Any old copy outside the project, e.g. `/Applications/RC-IFD.app` or a copied `dist/RC-IFD` folder | Replace it with the new build. On macOS, run `killall Dock` if the old icon remains cached. |
+
+**Do not remove:** `rc_ifd.py`, `ifd_backend/`, `web/index.html`, `requirements.txt`, `build_standalone.py`, `RC-IFD.icns` or `RC-IFD.ico`. Settings and logs in the data folder are also unrelated to the build — delete them only if you deliberately want a fresh profile.
+
+Optional cleanup commands:
+
+```bash
+# macOS / Linux
+rm -rf build dist RC-IFD.spec
+find . -type d -name __pycache__ -prune -exec rm -rf {} +
+```
+
+```powershell
+# Windows PowerShell
+Remove-Item -Recurse -Force build, dist, RC-IFD.spec -ErrorAction SilentlyContinue
+Get-ChildItem -Recurse -Directory -Filter __pycache__ | Remove-Item -Recurse -Force
+```
+
+---
+
+## 14. Share an install
 
 Send the package that matches the recipient's computer together with this guide.
 
