@@ -54,7 +54,7 @@ Open `web/index.html` directly without the backend and the display still works i
 | **macOS 12+** | Run `./run_mac_linux.sh`. Serial ports appear as `/dev/cu.*`; the `/dev/tty.*` duplicates are hidden. |
 | **Linux desktop** | Run `./run_mac_linux.sh`. Once: `sudo usermod -aG dialout $USER`, then copy `deploy/linux/99-rc-ifd.rules` to `/etc/udev/rules.d/` and re-login. |
 | **Raspberry Pi 4/5** | Run `bash deploy/raspberrypi/install_pi.sh` and reboot once. See [the user guide](docs/USER_GUIDE.md#raspberry-pi-field-unit) for details. |
-| **Packaged build** | Install the `.dmg`/`.app` (macOS) or the built executable folder (Windows/Linux). Build your own with `python build_standalone.py` on the target OS. |
+| **Packaged build** | Install the `.dmg`/`.app` (macOS) or the built executable folder (Windows/Linux). To make your own, follow [Build a standalone app](docs/USER_GUIDE.md#13-build-a-standalone-app) on the target OS. |
 
 From a source checkout, the launchers pass all arguments through:
 
