@@ -1,0 +1,5 @@
+# Required: serial ports (USB flight controllers, USB-UART adapters, Raspberry Pi GPIO UART)
+pyserial>=3.5
+# Optional: native window on Windows / macOS / Linux desktop. Without it the app opens a
+# Chrome/Edge/Chromium app-window instead (preferred on Raspberry Pi anyway).
+pywebview>=5.0 ; platform_machine != "armv7l" and platform_machine != "aarch64"
