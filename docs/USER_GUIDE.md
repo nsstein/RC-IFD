@@ -34,17 +34,17 @@ Screenshots in this guide illustrate the instrument panels and controls. Small l
 - Artificial horizon with speed and altitude tapes, vertical speed, heading tape and magenta steering bars that point home.
 - Moving map with home pointer, glide-range ring, breadcrumb trail, and a side-view profile of the aircraft above the ground.
 - Return-to-home panel with a large direction arrow, turn instruction, distance, time to home and a battery check.
-- Battery, current, throttle, link quality and GPS gauges, plus a colour-coded alert list with Master Warning/Master Caution.
+- Battery, current, throttle, link quality and GPS gauges, plus a color-coded alert list with Master Warning/Master Caution.
 - Waypoint missions on the map and in a list (MAVLink and INAV).
 - ADS-B traffic from the flight controller, a local receiver, or online services, with collision-style symbols and alerts.
 - Automatic flight logging with seekable replay and a standard `.tlog` for Mission Planner and other tools.
 - Home and aircraft coordinates in several formats, with one-tap copy and a last-known position that survives an app restart.
 
-### Colour conventions
+### color conventions
 
-The same colours mean the same thing everywhere, as in a real cockpit.
+The same colors mean the same thing everywhere, as in a real cockpit.
 
-| Colour | Meaning |
+| color | Meaning |
 | --- | --- |
 | White | Scales and current values |
 | Green | Normal, active or within limits |
@@ -570,7 +570,7 @@ Open Settings with ⚙. Settings are saved automatically and remembered between 
 | Speed units | km/h | km/h, knots, mph or m/s. |
 | Altitude / distance | metres / km | Or feet / nm. |
 | Vertical speed | m/s | Or ft/min. |
-| Stall / never-exceed speed | 35 / 140 km/h | Speed-tape colour bands and stall/overspeed warnings. |
+| Stall / never-exceed speed | 35 / 140 km/h | Speed-tape color bands and stall/overspeed warnings. |
 | Max bank warning | 55° | Bank-angle warning. |
 | Low altitude warning | 15 m | Amber altitude band and `TOO LOW`. |
 | RTH target altitude | 60 m | Return altitude for steering bars and profile. |
