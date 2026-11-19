@@ -26,9 +26,9 @@ Bench check: lift nose → horizon moves **down**. Roll right → horizon tilts 
 
 **Down?** Tap the `CRAFT` / `LKP` row to copy coordinates. Use `CRAFT FROM HOME` for bearing and distance to walk.
 
-## Colours and recovery
+## Colors and recovery
 
-| Colour / flag | Meaning |
+| Color / flag | Meaning |
 | --- | --- |
 | Magenta | Home / guidance — steer towards it |
 | Green | Normal |
