@@ -14,7 +14,7 @@
 - **Primary flight display** — artificial horizon, airspeed/altitude tapes, vertical speed, heading, bank scale, flight-path marker and magenta home-guidance bars.
 - **Navigation display** — map-style compass with home pointer, breadcrumb trail, glide ring, wind/ground track, and a vertical profile with a 30-second projection.
 - **Return-to-home panel** — large direction arrow, turn instruction, distance, time to home, battery/energy check, glide feasibility, and last-known position with one-tap coordinate copy.
-- **Systems and alerts** — battery, current, throttle, link and GPS gauges, plus colour-coded alerts with Master Warning/Master Caution.
+- **Systems and alerts** — battery, current, throttle, link and GPS gauges, plus color-coded alerts with Master Warning/Master Caution.
 - **Waypoint missions** — mission list and map route for MAVLink and INAV (MSP), with active-leg guidance and cross-track error where available.
 - **ADS-B traffic** — MAVLink `ADSB_VEHICLE`, local receivers (aircraft.json or SBS-1), and multiple online services running together and merged by ICAO address. Receive-only awareness; you must still give way.
 - **Flight logging and replay** — automatic raw logging at the link, standard MAVLink `.tlog` files, JSON summaries, seekable replay with speed control, and disk-space guards.
